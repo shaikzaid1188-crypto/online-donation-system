@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="#">📊 Donation Management Admin</a>
+        <a class="btn btn-outline-light btn-sm" href="/">Donor View</a>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 p-3 bg-white">
+                <span class="text-secondary small fw-semibold">TOTAL FUNDS RAISED</span>
+                <h3 class="fw-bold text-success mb-0" id="totalRaised">₹0</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 p-3 bg-white">
+                <span class="text-secondary small fw-semibold">UNIQUE DONORS</span>
+                <h3 class="fw-bold text-primary mb-0" id="totalDonors">0</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 p-3 bg-white">
+                <span class="text-secondary small fw-semibold">TOTAL TRANSACTIONS</span>
+                <h3 class="fw-bold text-dark mb-0" id="totalTxns">0</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 p-4 rounded-3 bg-white">
+                <h5 class="fw-bold mb-3">Launch New Campaign</h5>
+                <form id="campaignForm">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Title</label>
+                        <input type="text" class="form-control" id="cTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Target Goal (₹)</label>
+                        <input type="number" class="form-control" id="cTarget" min="500" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Description</label>
+                        <textarea class="form-control" id="cDesc" rows="3" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 fw-semibold">Create Campaign</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 p-4 rounded-3 bg-white">
+                <h5 class="fw-bold mb-3">Recent Donations</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light small">
+                            <tr>
+                                <th>Txn ID</th>
+                                <th>Donor</th>
+                                <th>Campaign</th>
+                                <th>Amount</th>
+                                <th>Mode</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="donationsTableBody">
+                            <tr><td colspan="6" class="text-center text-muted">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function loadAdminData() {
+        try {
+            const res = await fetch('/api/admin/overview');
+            const data = await res.json();
+            if (!data.success) return;
+
+            document.getElementById('totalRaised').innerText = '₹' + Number(data.stats.totalRaised).toLocaleString('en-IN');
+            document.getElementById('totalDonors').innerText = data.stats.totalDonors;
+            document.getElementById('totalTxns').innerText = data.stats.totalTransactions;
+
+            const tbody = document.getElementById('donationsTableBody');
+            tbody.innerHTML = '';
+
+            if (data.recentDonations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No donations recorded yet.</td></tr>';
+                return;
+            }
+
+            data.recentDonations.forEach(row => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><small class="fw-semibold">${row.transaction_id}</small></td>
+                        <td>
+                            <div>${row.full_name}</div>
+                            <small class="text-muted">${row.mobile}</small>
+                        </td>
+                        <td><small>${row.campaign_title}</small></td>
+                        <td><strong class="text-success">₹${Number(row.amount).toLocaleString('en-IN')}</strong></td>
+                        <td><span class="badge bg-secondary-subtle text-dark">${row.payment_method.toUpperCase()}</span></td>
+                        <td><small class="text-muted">${new Date(row.donated_at).toLocaleDateString('en-IN')}</small></td>
+                    </tr>
+                `;
+            });
+        } catch (err) {
+            console.error('Error loading admin overview:', err);
+        }
+    }
+
+    document.getElementById('campaignForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const payload = {
+            title: document.getElementById('cTitle').value,
+            targetAmount: document.getElementById('cTarget').value,
+            description: document.getElementById('cDesc').value
+        };
+
+        const res = await fetch('/api/admin/campaigns', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+        if (result.success) {
+            alert('Campaign added successfully!');
+            document.getElementById('campaignForm').reset();
+            loadAdminData();
+        } else {
+            alert('Failed: ' + result.message);
+        }
+    });
+
+    loadAdminData();
+</script>
+</body>
+</html>
